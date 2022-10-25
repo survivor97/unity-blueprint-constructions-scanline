@@ -413,6 +413,7 @@ MonoBehaviour:
   segmentPrefab: {fileID: 3034787698989542864, guid: a175edd9bbb90304493240d60e48b8a9, type: 3}
   currentNodeNormalMaterial: {fileID: 2100000, guid: ec791c474ced9e444bc5866ea72ae89e, type: 2}
   currentNodeFinalMaterial: {fileID: 2100000, guid: f58a2ce7268c98743ad87c436ad2fc41, type: 2}
+  constructionCylinder: {fileID: 7038702033932118143, guid: d3ae7f01ded9edf4a83577711bface13, type: 3}
 --- !u!4 &1702527084
 Transform:
   m_ObjectHideFlags: 0

@@ -18,17 +18,26 @@ public class BlueprintConstruction : MonoBehaviour
     [SerializeField]
     private Material currentNodeFinalMaterial;
 
+    [SerializeField]
+    private GameObject constructionCylinder;
+
+    private Vector3 constructionCylinderBounds;
+
     private bool isBuilding;
     
     private bool snappedToFirstNode;
 
     private GameObject nodeCurrentPosition;
     private GameObject currentSegment;
+
     private List<GameObject> blueprintPoints;
     private List<GameObject> segmentList;
+    private List<GameObject> constructionCylinderLastSegmentList;
+    private List<GameObject> constructionCylinderList;
 
     void Start()
     {
+        constructionCylinderBounds = constructionCylinder.GetComponent<MeshRenderer>().bounds.size;
     }
 
     void Update()
@@ -40,6 +49,8 @@ public class BlueprintConstruction : MonoBehaviour
                 isBuilding = true;
                 blueprintPoints = new List<GameObject>();
                 segmentList = new List<GameObject>();
+                constructionCylinderLastSegmentList = new List<GameObject>();
+                constructionCylinderList = new List<GameObject>();
             }
         }
 
@@ -83,6 +94,13 @@ public class BlueprintConstruction : MonoBehaviour
                         segmentList.Add(segment);
                     }
 
+                    //Append construction segment to construction list
+                    for (int i = 0; i < constructionCylinderLastSegmentList.Count; i++)
+                    {
+                        constructionCylinderList.Add(constructionCylinderLastSegmentList[i]);                        
+                    }
+                    constructionCylinderLastSegmentList = new List<GameObject>();
+
                     //Open polygon
                     if (!snappedToFirstNode)
                     {
@@ -112,7 +130,7 @@ public class BlueprintConstruction : MonoBehaviour
 
                     //Rotation
                     Vector3 relativePos = currentSegment.transform.position - blueprintPoints[blueprintPoints.Count - 1].transform.position;
-                    Quaternion rotation = Quaternion.LookRotation(relativePos, Vector3.up);
+                    Quaternion rotation = Vector3.Angle(relativePos, Vector3.up) == 0f ? Quaternion.identity : Quaternion.LookRotation(relativePos, Vector3.up);
                     currentSegment.transform.rotation = rotation;
 
                     //Scaling
@@ -142,8 +160,42 @@ public class BlueprintConstruction : MonoBehaviour
                     }
                 }
 
+                //Construction cylinders on the last segment
+                if (blueprintPoints.Count > 0)
+                {
+                    float currentSegmentWorldLength = Mathf.Sqrt(Mathf.Pow(currentSegment.GetComponent<MeshRenderer>().bounds.size.x, 2) +
+                        Mathf.Pow(currentSegment.GetComponent<MeshRenderer>().bounds.size.z, 2));
+                    float totalConstructionLength = constructionCylinderLastSegmentList.Count * constructionCylinderBounds.x;
+
+                    //Add more cylinders if needed
+                    while(totalConstructionLength < currentSegmentWorldLength + 2 * constructionCylinderBounds.x)
+                    {
+                        GameObject newCylinder = Instantiate(constructionCylinder);
+                        constructionCylinderLastSegmentList.Add(newCylinder);
+                        totalConstructionLength += constructionCylinderBounds.x;
+                    }
+
+                    //Remove cylinders if there are too much
+                    while(totalConstructionLength > currentSegmentWorldLength + constructionCylinderBounds.x)
+                    {
+                        Destroy(constructionCylinderLastSegmentList[constructionCylinderLastSegmentList.Count - 1]);
+                        constructionCylinderLastSegmentList.RemoveAt(constructionCylinderLastSegmentList.Count - 1);
+                        totalConstructionLength -= constructionCylinderBounds.x;
+                    }
+
+                    Vector3 normalizedVector = Vector3.Normalize(nodeCurrentPosition.transform.position - blueprintPoints[blueprintPoints.Count - 1].transform.position);
+                    for (int i = 0; i < constructionCylinderLastSegmentList.Count; i++)
+                    {
+                        //Position
+                        Vector3 newPosition = 
+                            blueprintPoints[blueprintPoints.Count - 1].transform.position + i * constructionCylinderBounds.x * normalizedVector
+                            + new Vector3(0f, constructionCylinderBounds.y / 2, 0f);
+                        constructionCylinderLastSegmentList[i].transform.position = newPosition;
+                    }
+                }
+
                 //Disable Building
-                if(Input.GetKeyDown(KeyCode.X))
+                if (Input.GetKeyDown(KeyCode.X))
                 {
                     isBuilding = false;
 
