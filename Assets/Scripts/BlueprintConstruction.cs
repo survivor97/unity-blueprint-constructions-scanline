@@ -18,10 +18,12 @@ public class BlueprintConstruction : MonoBehaviour
     [SerializeField]
     private Material currentNodeFinalMaterial;
 
-    private GameObject nodeCurrentPosition;
-
-    private GameObject currentSegment;
     private bool isBuilding;
+    
+    private bool snappedToFirstNode;
+
+    private GameObject nodeCurrentPosition;
+    private GameObject currentSegment;
     private List<GameObject> blueprintPoints;
     private List<GameObject> segmentList;
 
@@ -59,26 +61,40 @@ public class BlueprintConstruction : MonoBehaviour
                 {
                     nodeCurrentPosition.transform.position = blueprintPoints[0].transform.position;
                     nodeCurrentPosition.GetComponent<MeshRenderer>().sharedMaterial = currentNodeFinalMaterial;
+                    snappedToFirstNode = true;
                 } 
                 //Free move
                 else
                 {
                     nodeCurrentPosition.transform.position = hit.point;
                     nodeCurrentPosition.GetComponent<MeshRenderer>().sharedMaterial = currentNodeNormalMaterial;
+                    snappedToFirstNode = false;
                 }                
 
+                //Create a node
                 if (Input.GetMouseButtonDown(0))
                 {
-                    GameObject newBlueprintPoint = Instantiate(blueprintNodePrefab, hit.point, blueprintNodePrefab.transform.rotation);
-                    blueprintPoints.Add(newBlueprintPoint);
-
-                    if(currentSegment != null)
+                    if (currentSegment != null)
                     {
                         GameObject segment = Instantiate(segmentPrefab);
                         segment.transform.position = currentSegment.transform.position;
                         segment.transform.rotation = currentSegment.transform.rotation;
                         segment.transform.localScale = currentSegment.transform.localScale;
                         segmentList.Add(segment);
+                    }
+
+                    //Open polygon
+                    if (!snappedToFirstNode)
+                    {
+                        GameObject newBlueprintPoint = Instantiate(blueprintNodePrefab, hit.point, blueprintNodePrefab.transform.rotation);
+                        blueprintPoints.Add(newBlueprintPoint);
+                    }
+                    //Closed polygon
+                    else
+                    {
+                        blueprintPoints = new List<GameObject>();
+                        segmentList = new List<GameObject>();
+                        Destroy(currentSegment);
                     }
                 }
 
