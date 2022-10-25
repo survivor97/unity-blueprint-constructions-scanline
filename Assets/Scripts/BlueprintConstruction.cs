@@ -32,11 +32,14 @@ public class BlueprintConstruction : MonoBehaviour
     private bool isBuilding;
     
     private bool snappedToFirstNode;
+    private bool snappedToUpperNode;
 
     private GameObject nodeCurrentPosition;
     private GameObject currentSegment;
+    private GameObject lastSnappedUpperPoint;
 
     private List<GameObject> blueprintPoints;
+    private List<GameObject> upperPoints;
     private List<GameObject> segmentList;
     private List<GameObject> constructionCylinderLastSegmentList;
     private List<GameObject> constructionCylinderList;
@@ -60,6 +63,7 @@ public class BlueprintConstruction : MonoBehaviour
             {
                 isBuilding = true;
                 blueprintPoints = new List<GameObject>();
+                upperPoints = new List<GameObject>();
                 segmentList = new List<GameObject>();
                 constructionCylinderLastSegmentList = new List<GameObject>();
                 constructionCylinderList = new List<GameObject>();
@@ -79,7 +83,7 @@ public class BlueprintConstruction : MonoBehaviour
                 }
 
                 //Position the node
-                //Snap no the first node
+                //Snap node the first node
                 if (blueprintPoints.Count > 2 && Vector3.Distance(hit.point, blueprintPoints[0].transform.position) < 1f)
                 {
                     nodeCurrentPosition.transform.position = blueprintPoints[0].transform.position;
@@ -92,6 +96,22 @@ public class BlueprintConstruction : MonoBehaviour
                     nodeCurrentPosition.transform.position = hit.point;
                     nodeCurrentPosition.GetComponent<MeshRenderer>().sharedMaterial = currentNodeNormalMaterial;
                     snappedToFirstNode = false;
+
+                    for(int i=0; i<upperPoints.Count; i++)
+                    {
+                        if(Vector3.Distance(hit.point, upperPoints[i].transform.position) < 1f)
+                        {
+                            nodeCurrentPosition.transform.position = upperPoints[i].transform.position;
+                            snappedToUpperNode = true;
+                            lastSnappedUpperPoint = upperPoints[i];
+                            break;
+                        }
+
+                        if(i == upperPoints.Count - 1)
+                        {
+                            snappedToUpperNode = false;
+                        }
+                    }
                 }                
 
                 //Create a node
@@ -110,19 +130,42 @@ public class BlueprintConstruction : MonoBehaviour
                     for (int i = 0; i < constructionCylinderLastSegmentList.Count; i++)
                     {
                         constructionCylinderLastSegmentList[i].AddComponent<BlueprintCylinder>().setVariant(0);
-                        constructionCylinderList.Add(constructionCylinderLastSegmentList[i]);                        
+                        constructionCylinderList.Add(constructionCylinderLastSegmentList[i]);         
                     }
                     constructionCylinderLastSegmentList = new List<GameObject>();
 
                     //Open polygon
                     if (!snappedToFirstNode)
                     {
-                        GameObject newBlueprintPoint = Instantiate(blueprintNodePrefab, hit.point, blueprintNodePrefab.transform.rotation);
+                        GameObject newBlueprintPoint;
+                        //Draw snapped to upper point
+                        if (snappedToUpperNode)
+                        {
+                            newBlueprintPoint = Instantiate(blueprintNodePrefab, lastSnappedUpperPoint.transform.position, blueprintNodePrefab.transform.rotation);
+                        }
+                        //Free Draw
+                        else
+                        {
+                            newBlueprintPoint = Instantiate(blueprintNodePrefab, hit.point, blueprintNodePrefab.transform.rotation);
+                        }
                         blueprintPoints.Add(newBlueprintPoint);
                     }
                     //Closed polygon
                     else
                     {
+                        //Create the upper points when closing the polygon
+                        for(int i=0; i<blueprintPoints.Count; i++)
+                        {
+                            GameObject newUpperPoint = Instantiate(
+                                blueprintNodePrefab, 
+                                blueprintPoints[i].transform.position + new Vector3(0f, constructionCylinderBounds.y, 0f),
+                                Quaternion.identity);
+                            newUpperPoint.layer = 0;
+                            newUpperPoint.AddComponent<BoxCollider>().isTrigger = true;
+                            upperPoints.Add(newUpperPoint);
+                        }
+
+                        //Clear others
                         blueprintPoints = new List<GameObject>();
                         segmentList = new List<GameObject>();
                         Destroy(currentSegment);
