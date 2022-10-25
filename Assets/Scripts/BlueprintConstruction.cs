@@ -21,6 +21,12 @@ public class BlueprintConstruction : MonoBehaviour
     [SerializeField]
     private GameObject constructionCylinder;
 
+    [SerializeField]
+    private GameObject constructionCylinderWindow;
+
+    [SerializeField]
+    private GameObject constructionCylinderDoor;
+
     private Vector3 constructionCylinderBounds;
 
     private bool isBuilding;
@@ -34,10 +40,16 @@ public class BlueprintConstruction : MonoBehaviour
     private List<GameObject> segmentList;
     private List<GameObject> constructionCylinderLastSegmentList;
     private List<GameObject> constructionCylinderList;
+    private List<GameObject> constructionCylinderVariations;
 
     void Start()
     {
         constructionCylinderBounds = constructionCylinder.GetComponent<MeshRenderer>().bounds.size;
+
+        constructionCylinderVariations = new List<GameObject>();
+        constructionCylinderVariations.Add(constructionCylinder);
+        constructionCylinderVariations.Add(constructionCylinderWindow);
+        constructionCylinderVariations.Add(constructionCylinderDoor);        
     }
 
     void Update()
@@ -54,11 +66,11 @@ public class BlueprintConstruction : MonoBehaviour
             }
         }
 
-        if(isBuilding)
-        {
-            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
 
-            if (Physics.Raycast(ray, out RaycastHit hit))
+        if (isBuilding)
+        {
+            if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, ~LayerMask.GetMask("Construction")))
             {
                 if (nodeCurrentPosition == null)
                 {
@@ -97,6 +109,7 @@ public class BlueprintConstruction : MonoBehaviour
                     //Append construction segment to construction list
                     for (int i = 0; i < constructionCylinderLastSegmentList.Count; i++)
                     {
+                        constructionCylinderLastSegmentList[i].AddComponent<BlueprintCylinder>().setVariant(0);
                         constructionCylinderList.Add(constructionCylinderLastSegmentList[i]);                        
                     }
                     constructionCylinderLastSegmentList = new List<GameObject>();
@@ -214,7 +227,40 @@ public class BlueprintConstruction : MonoBehaviour
                 }
             }
         }
+    
+        else
+        {
+            //Change cylinder construction type
+            if (Input.GetKeyDown(KeyCode.C))
+            {
+                if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, LayerMask.GetMask("Construction")))
+                {
+                    int constructionVariationIndex = hit.transform.GetComponent<BlueprintCylinder>().getVariant();
+                    constructionVariationIndex++;
+                    if(constructionVariationIndex > constructionCylinderVariations.Count - 1)
+                    {
+                        constructionVariationIndex = 0;
+                    }
+
+                    GameObject newVaraint = Instantiate(constructionCylinderVariations[constructionVariationIndex], hit.transform.position, hit.transform.rotation);
+                    newVaraint.AddComponent<BlueprintCylinder>().setVariant(constructionVariationIndex);
+
+                    int indexOfCylinder = -1;
+
+                    for(int i=0; i<constructionCylinderList.Count; i++)
+                    {
+                        if(constructionCylinderList[i].GetInstanceID() == hit.transform.gameObject.GetInstanceID())
+                        {
+                            indexOfCylinder = i;
+                            break;
+                        }
+                    }
+
+                    constructionCylinderList[indexOfCylinder] = newVaraint;
+
+                    Destroy(hit.transform.gameObject);
+                }
+            }
+        }
     }
-
-
 }
