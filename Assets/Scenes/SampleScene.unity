@@ -416,6 +416,7 @@ MonoBehaviour:
   constructionCylinder: {fileID: 7038702033932118143, guid: d3ae7f01ded9edf4a83577711bface13, type: 3}
   constructionCylinderWindow: {fileID: 8433528343701845228, guid: 8f3135e1de988ce43b2e42cd2551863e, type: 3}
   constructionCylinderDoor: {fileID: 1935584814448571223, guid: 43cfdbd901ddbf64697e16835a415a23, type: 3}
+  constructionCylinderHorizontal: {fileID: 1033234616616504623, guid: 5a01263f848798c4fbfb2f52915d4e56, type: 3}
 --- !u!4 &1702527084
 Transform:
   m_ObjectHideFlags: 0
