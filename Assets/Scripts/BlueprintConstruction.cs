@@ -48,6 +48,8 @@ public class BlueprintConstruction : MonoBehaviour
     private List<GameObject> upperPoints;
     private List<GameObject> segmentList;
     private List<GameObject> constructionCylinderLastSegmentList;
+    private List<GameObject> constructionCylinderHorizontalMainSegmentList;
+    private List<List<GameObject>> contructionCylinderParallelList;
     private List<GameObject> constructionCylinderList;
     private List<GameObject> constructionCylinderVariations;
 
@@ -73,6 +75,8 @@ public class BlueprintConstruction : MonoBehaviour
                 upperPoints = new List<GameObject>();
                 segmentList = new List<GameObject>();
                 constructionCylinderLastSegmentList = new List<GameObject>();
+                constructionCylinderHorizontalMainSegmentList = new List<GameObject>();
+                contructionCylinderParallelList = new List<List<GameObject>>();
                 constructionCylinderList = new List<GameObject>();
             }
         }
@@ -279,65 +283,115 @@ public class BlueprintConstruction : MonoBehaviour
                     if (buildingMode == 1)
                     {
                         float currentSegmentWorldLength = Mathf.Sqrt(Mathf.Pow(currentSegment.GetComponent<MeshRenderer>().bounds.size.x, 2) +
-                        Mathf.Pow(currentSegment.GetComponent<MeshRenderer>().bounds.size.z, 2));
-                        float totalConstructionLength = constructionCylinderLastSegmentList.Count * constructionCylinderHorizontalBounds.z;
+                           Mathf.Pow(currentSegment.GetComponent<MeshRenderer>().bounds.size.z, 2));
 
-                        //Add more cylinders if needed                    
-                        while (totalConstructionLength < currentSegmentWorldLength + 2 * constructionCylinderHorizontalBounds.z)
-                        {
-                            GameObject newCylinder = Instantiate(constructionCylinderHorizontal);
-                            constructionCylinderLastSegmentList.Add(newCylinder);
-                            totalConstructionLength += constructionCylinderHorizontalBounds.z;
-                        }
+                        //Add constructions in line
+                        if (blueprintPoints.Count <= 1)
+                        {                           
+                            float totalConstructionLength = constructionCylinderHorizontalMainSegmentList.Count * constructionCylinderHorizontalBounds.z;
 
-                        //Remove cylinders if there are too much
-                        while (totalConstructionLength > currentSegmentWorldLength + constructionCylinderHorizontalBounds.z)
-                        {
-
-                            Destroy(constructionCylinderLastSegmentList[constructionCylinderLastSegmentList.Count - 1]);
-                            constructionCylinderLastSegmentList.RemoveAt(constructionCylinderLastSegmentList.Count - 1);
-                            totalConstructionLength -= constructionCylinderHorizontalBounds.z;
-                        }
-
-                        Vector3 normalizedVector = Vector3.Normalize(nodeCurrentPosition.transform.position - blueprintPoints[blueprintPoints.Count - 1].transform.position);
-                        for (int i = 0; i < constructionCylinderLastSegmentList.Count; i++)
-                        {
-
-                            //Rotation
-                            Vector3 relativePos = currentSegment.transform.position - blueprintPoints[blueprintPoints.Count - 1].transform.position;
-                            Quaternion rotation = Vector3.Angle(relativePos, Vector3.up) == 0f ? Quaternion.identity : Quaternion.LookRotation(relativePos, Vector3.up);
-                            constructionCylinderLastSegmentList[i].transform.rotation = rotation;
-
-                            //Scale + position last
-                            if(i == constructionCylinderLastSegmentList.Count - 1)
+                            //Add more cylinders if needed                    
+                            while (totalConstructionLength < currentSegmentWorldLength + 2 * constructionCylinderHorizontalBounds.z)
                             {
-                                //Scale
-                                float scaleValue = totalConstructionLength - currentSegmentWorldLength;
-
-                                constructionCylinderLastSegmentList[i].transform.localScale =
-                                    new Vector3(
-                                        constructionCylinderHorizontal.transform.localScale.x, 
-                                        constructionCylinderHorizontal.transform.localScale.y,
-                                        1 - (scaleValue / constructionCylinderHorizontalBounds.z));
-
-                                //Position
-                                Vector3 newPosition =
-                                    blueprintPoints[blueprintPoints.Count - 1].transform.position + i * constructionCylinderHorizontalBounds.z * normalizedVector
-                                    + 0.5f * constructionCylinderHorizontalBounds.z * normalizedVector
-                                    - scaleValue / 2 * normalizedVector;
-                                constructionCylinderLastSegmentList[i].transform.position = newPosition;
+                                GameObject newCylinder = Instantiate(constructionCylinderHorizontal);
+                                constructionCylinderHorizontalMainSegmentList.Add(newCylinder);
+                                totalConstructionLength += constructionCylinderHorizontalBounds.z;
                             }
-                            //Scale + position full portions
-                            else
-                            {
-                                //Position
-                                Vector3 newPosition =
-                                    blueprintPoints[blueprintPoints.Count - 1].transform.position + i * constructionCylinderHorizontalBounds.z * normalizedVector
-                                    + 0.5f * constructionCylinderHorizontalBounds.z * normalizedVector;
-                                constructionCylinderLastSegmentList[i].transform.position = newPosition;
 
-                                //Scale
-                                constructionCylinderLastSegmentList[i].transform.localScale = constructionCylinderHorizontal.transform.localScale;
+                            //Remove cylinders if there are too much
+                            while (totalConstructionLength > currentSegmentWorldLength + constructionCylinderHorizontalBounds.z)
+                            {
+
+                                Destroy(constructionCylinderHorizontalMainSegmentList[constructionCylinderHorizontalMainSegmentList.Count - 1]);
+                                constructionCylinderHorizontalMainSegmentList.RemoveAt(constructionCylinderHorizontalMainSegmentList.Count - 1);
+                                totalConstructionLength -= constructionCylinderHorizontalBounds.z;
+                            }
+
+                            Vector3 normalizedVector = Vector3.Normalize(nodeCurrentPosition.transform.position - blueprintPoints[blueprintPoints.Count - 1].transform.position);
+                            for (int i = 0; i < constructionCylinderHorizontalMainSegmentList.Count; i++)
+                            {
+
+                                //Rotation
+                                Vector3 relativePos = currentSegment.transform.position - blueprintPoints[blueprintPoints.Count - 1].transform.position;
+                                Quaternion rotation = Vector3.Angle(relativePos, Vector3.up) == 0f ? Quaternion.identity : Quaternion.LookRotation(relativePos, Vector3.up);
+                                constructionCylinderHorizontalMainSegmentList[i].transform.rotation = rotation;
+
+                                //Scale + position last
+                                if (i == constructionCylinderHorizontalMainSegmentList.Count - 1)
+                                {
+                                    //Scale
+                                    float scaleValue = totalConstructionLength - currentSegmentWorldLength;
+
+                                    constructionCylinderHorizontalMainSegmentList[i].transform.localScale =
+                                        new Vector3(
+                                            constructionCylinderHorizontal.transform.localScale.x,
+                                            constructionCylinderHorizontal.transform.localScale.y,
+                                            1 - (scaleValue / constructionCylinderHorizontalBounds.z));
+
+                                    //Position
+                                    Vector3 newPosition =
+                                        blueprintPoints[blueprintPoints.Count - 1].transform.position + i * constructionCylinderHorizontalBounds.z * normalizedVector
+                                        + 0.5f * constructionCylinderHorizontalBounds.z * normalizedVector
+                                        - scaleValue / 2 * normalizedVector;
+                                    constructionCylinderHorizontalMainSegmentList[i].transform.position = newPosition;
+                                }
+                                //Scale + position full portions
+                                else
+                                {
+                                    //Position
+                                    Vector3 newPosition =
+                                        blueprintPoints[blueprintPoints.Count - 1].transform.position + i * constructionCylinderHorizontalBounds.z * normalizedVector
+                                        + 0.5f * constructionCylinderHorizontalBounds.z * normalizedVector;
+                                    constructionCylinderHorizontalMainSegmentList[i].transform.position = newPosition;
+
+                                    //Scale
+                                    constructionCylinderHorizontalMainSegmentList[i].transform.localScale = constructionCylinderHorizontal.transform.localScale;
+                                }
+                            }
+                        }
+
+                        //Add constructions in parallel
+                        else
+                        {
+                            Vector3 baseVector = blueprintPoints[0].transform.position - blueprintPoints[1].transform.position;
+                            Vector3 currentVector = nodeCurrentPosition.transform.position - blueprintPoints[1].transform.position;
+                            float angle = Vector3.Angle(currentVector, baseVector);
+
+                            //Debug.Log("Angle: " + angle + "; " + Mathf.Sin(angle * Mathf.Deg2Rad) + "; " + Mathf.Sin(angle * Mathf.Deg2Rad) * currentVector.magnitude );
+                            Debug.Log("Inverse Transform Point: " + constructionCylinderHorizontalMainSegmentList[0].transform.InverseTransformPoint(nodeCurrentPosition.transform.position));
+
+                            //Add more line of cylinders if needed  
+                            while (Mathf.Sin(angle * Mathf.Deg2Rad) * currentVector.magnitude > contructionCylinderParallelList.Count * constructionCylinderHorizontalBounds.x)
+                            {
+                                List<GameObject> newCylinderLine = new List<GameObject>();
+                                for (int i = 0; i < constructionCylinderHorizontalMainSegmentList.Count; i++)
+                                {
+                                    float direction;
+                                    GameObject newCylinder = Instantiate(constructionCylinderHorizontal);
+
+                                    if(constructionCylinderHorizontalMainSegmentList[0].transform.InverseTransformPoint(nodeCurrentPosition.transform.position).x >= 0f)
+                                    {
+                                        direction = -1;
+                                    }
+                                    else
+                                    {
+                                        direction = 1;
+                                    }
+
+                                    //Position
+                                    newCylinder.transform.position = constructionCylinderHorizontalMainSegmentList[i].transform.position
+                                        + constructionCylinderHorizontalMainSegmentList[i].transform.right * direction
+                                        * (-1)
+                                        * constructionCylinderHorizontalBounds.x
+                                        * (contructionCylinderParallelList.Count + 1);
+                                    //Rotation
+                                    newCylinder.transform.rotation = constructionCylinderHorizontalMainSegmentList[i].transform.rotation;
+                                    //Scale
+                                    newCylinder.transform.localScale = constructionCylinderHorizontalMainSegmentList[i].transform.localScale;
+
+                                    newCylinderLine.Add(newCylinder);
+                                }
+                                contructionCylinderParallelList.Add(newCylinderLine);
                             }
                         }
                     }
