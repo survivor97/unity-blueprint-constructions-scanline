@@ -53,6 +53,12 @@ public class BlueprintConstruction : MonoBehaviour
     private List<GameObject> constructionCylinderList;
     private List<GameObject> constructionCylinderVariations;
 
+    //Parallel construction
+    private Transform originTransform;
+    Vector3[] allPoints;
+    bool[] pointsGeneratingLines;
+    int[] linePortionIds;
+
     void Start()
     {
         constructionCylinderVerticalBounds = constructionCylinder.GetComponent<MeshRenderer>().bounds.size;
@@ -61,14 +67,14 @@ public class BlueprintConstruction : MonoBehaviour
         constructionCylinderVariations = new List<GameObject>();
         constructionCylinderVariations.Add(constructionCylinder);
         constructionCylinderVariations.Add(constructionCylinderWindow);
-        constructionCylinderVariations.Add(constructionCylinderDoor);        
+        constructionCylinderVariations.Add(constructionCylinderDoor);
     }
 
     void Update()
     {
-        if(Input.GetKeyDown(KeyCode.B))
+        if (Input.GetKeyDown(KeyCode.B))
         {
-            if(!isBuilding)
+            if (!isBuilding)
             {
                 isBuilding = true;
                 blueprintPoints = new List<GameObject>();
@@ -86,43 +92,44 @@ public class BlueprintConstruction : MonoBehaviour
         if (isBuilding)
         {
             //Switch building mode
-            if(Input.GetKeyDown(KeyCode.Alpha1))
+            if (Input.GetKeyDown(KeyCode.Alpha1))
             {
                 Debug.Log("Build Mode: 0");
                 buildingMode = 0;
             }
-            else if(Input.GetKeyDown(KeyCode.Alpha2))
+            else if (Input.GetKeyDown(KeyCode.Alpha2))
             {
                 Debug.Log("Build Mode: 1");
                 buildingMode = 1;
             }
 
+            //Ignore collision with the Construction layer
             if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, ~LayerMask.GetMask("Construction")))
             {
                 if (nodeCurrentPosition == null)
                 {
                     nodeCurrentPosition = Instantiate(currentNodePositionPrefab);
-                    nodeCurrentPosition.GetComponent<MeshRenderer>().sharedMaterial = currentNodeNormalMaterial;  
+                    nodeCurrentPosition.GetComponent<MeshRenderer>().sharedMaterial = currentNodeNormalMaterial;
                 }
-
-                //Position the node
+                                
                 //Snap node the first node
                 if (blueprintPoints.Count > 2 && Vector3.Distance(hit.point, blueprintPoints[0].transform.position) < 1f)
                 {
                     nodeCurrentPosition.transform.position = blueprintPoints[0].transform.position;
                     nodeCurrentPosition.GetComponent<MeshRenderer>().sharedMaterial = currentNodeFinalMaterial;
                     snappedToFirstNode = true;
-                } 
+                }
                 //Free move
+                //Update the current node
                 else
                 {
                     nodeCurrentPosition.transform.position = hit.point;
                     nodeCurrentPosition.GetComponent<MeshRenderer>().sharedMaterial = currentNodeNormalMaterial;
                     snappedToFirstNode = false;
 
-                    for(int i=0; i<upperPoints.Count; i++)
+                    for (int i = 0; i < upperPoints.Count; i++)
                     {
-                        if(Vector3.Distance(hit.point, upperPoints[i].transform.position) < 1f)
+                        if (Vector3.Distance(hit.point, upperPoints[i].transform.position) < 1f)
                         {
                             nodeCurrentPosition.transform.position = upperPoints[i].transform.position;
                             snappedToUpperNode = true;
@@ -130,12 +137,12 @@ public class BlueprintConstruction : MonoBehaviour
                             break;
                         }
 
-                        if(i == upperPoints.Count - 1)
+                        if (i == upperPoints.Count - 1)
                         {
                             snappedToUpperNode = false;
                         }
                     }
-                }                
+                }
 
                 //Create a node
                 if (Input.GetMouseButtonDown(0))
@@ -153,13 +160,13 @@ public class BlueprintConstruction : MonoBehaviour
                     for (int i = 0; i < constructionCylinderLastSegmentList.Count; i++)
                     {
                         constructionCylinderLastSegmentList[i].AddComponent<BlueprintCylinder>().setVariant(0);
-                        constructionCylinderList.Add(constructionCylinderLastSegmentList[i]);         
+                        constructionCylinderList.Add(constructionCylinderLastSegmentList[i]);
                     }
                     constructionCylinderLastSegmentList = new List<GameObject>();
 
                     //Open polygon
                     if (!snappedToFirstNode)
-                    {
+                    {                        
                         GameObject newBlueprintPoint;
                         //Draw snapped to upper point
                         if (snappedToUpperNode)
@@ -177,10 +184,10 @@ public class BlueprintConstruction : MonoBehaviour
                     else
                     {
                         //Create the upper points when closing the polygon
-                        for(int i=0; i<blueprintPoints.Count; i++)
+                        for (int i = 0; i < blueprintPoints.Count; i++)
                         {
                             GameObject newUpperPoint = Instantiate(
-                                blueprintNodePrefab, 
+                                blueprintNodePrefab,
                                 blueprintPoints[i].transform.position + new Vector3(0f, constructionCylinderVerticalBounds.y, 0f),
                                 Quaternion.identity);
                             newUpperPoint.layer = 0;
@@ -196,13 +203,13 @@ public class BlueprintConstruction : MonoBehaviour
                 }
 
                 //Segment for last part
-                if(blueprintPoints.Count > 0)
+                if (blueprintPoints.Count > 0)
                 {
-                    if(currentSegment == null)
+                    if (currentSegment == null)
                     {
                         currentSegment = Instantiate(segmentPrefab);
                     }
-                    
+
                     //Position
                     Vector3 newPosition = (blueprintPoints[blueprintPoints.Count - 1].transform.position + nodeCurrentPosition.transform.position) / 2;
                     currentSegment.transform.position = newPosition;
@@ -220,7 +227,7 @@ public class BlueprintConstruction : MonoBehaviour
                 }
 
                 //Remove segment
-                if(Input.GetKeyDown(KeyCode.Backspace))
+                if (Input.GetKeyDown(KeyCode.Backspace))
                 {
                     if (blueprintPoints.Count == 1)
                     {
@@ -229,7 +236,7 @@ public class BlueprintConstruction : MonoBehaviour
                         blueprintPoints.RemoveAt(0);
                     }
 
-                    else if (blueprintPoints.Count > 1) 
+                    else if (blueprintPoints.Count > 1)
                     {
                         Destroy(blueprintPoints[blueprintPoints.Count - 1]);
                         blueprintPoints.RemoveAt(blueprintPoints.Count - 1);
@@ -285,9 +292,32 @@ public class BlueprintConstruction : MonoBehaviour
                         float currentSegmentWorldLength = Mathf.Sqrt(Mathf.Pow(currentSegment.GetComponent<MeshRenderer>().bounds.size.x, 2) +
                            Mathf.Pow(currentSegment.GetComponent<MeshRenderer>().bounds.size.z, 2));
 
+                        allPoints = new Vector3[blueprintPoints.Count + 1];
+                        pointsGeneratingLines = new bool[allPoints.Length];
+                        linePortionIds = new int[allPoints.Length];
+
+                        //Update the blueprint points
+                        for (int i = 0; i < blueprintPoints.Count; i++)
+                        {
+                            allPoints[i] = blueprintPoints[i].transform.position;
+                        }
+
+                        allPoints[allPoints.Length - 1] = nodeCurrentPosition.transform.position;
+
+                        //Create the origin transform
+                        if (originTransform == null)
+                        {
+                            originTransform = new GameObject("OriginTransform").transform;
+                            originTransform.position = hit.point;
+                        }
+
+                        //Update the origin transform
+                        originTransform.transform.LookAt(allPoints[1], Vector3.up);
+                        originTransform.rotation *= Quaternion.Euler(90f, -90f, 0f);
+
                         //Add constructions in line
                         if (blueprintPoints.Count <= 1)
-                        {                           
+                        {
                             float totalConstructionLength = constructionCylinderHorizontalMainSegmentList.Count * constructionCylinderHorizontalBounds.z;
 
                             //Add more cylinders if needed                    
@@ -312,7 +342,7 @@ public class BlueprintConstruction : MonoBehaviour
                             {
 
                                 //Rotation
-                                Vector3 relativePos = currentSegment.transform.position - blueprintPoints[blueprintPoints.Count - 1].transform.position;
+                                Vector3 relativePos = blueprintPoints[blueprintPoints.Count - 1].transform.position - currentSegment.transform.position;
                                 Quaternion rotation = Vector3.Angle(relativePos, Vector3.up) == 0f ? Quaternion.identity : Quaternion.LookRotation(relativePos, Vector3.up);
                                 constructionCylinderHorizontalMainSegmentList[i].transform.rotation = rotation;
 
@@ -353,46 +383,176 @@ public class BlueprintConstruction : MonoBehaviour
                         //Add constructions in parallel
                         else
                         {
-                            Vector3 baseVector = blueprintPoints[0].transform.position - blueprintPoints[1].transform.position;
-                            Vector3 currentVector = nodeCurrentPosition.transform.position - blueprintPoints[1].transform.position;
-                            float angle = Vector3.Angle(currentVector, baseVector);
+                            int nrOfRequiredLists = 1;
 
-                            //Debug.Log("Angle: " + angle + "; " + Mathf.Sin(angle * Mathf.Deg2Rad) + "; " + Mathf.Sin(angle * Mathf.Deg2Rad) * currentVector.magnitude );
-                            Debug.Log("Inverse Transform Point: " + constructionCylinderHorizontalMainSegmentList[0].transform.InverseTransformPoint(nodeCurrentPosition.transform.position));
-
-                            //Add more line of cylinders if needed  
-                            while (Mathf.Sin(angle * Mathf.Deg2Rad) * currentVector.magnitude > contructionCylinderParallelList.Count * constructionCylinderHorizontalBounds.x)
+                            //Calculate the number of required lists
+                            for (int i = 2; i < allPoints.Length - 1; i++)
                             {
-                                List<GameObject> newCylinderLine = new List<GameObject>();
-                                for (int i = 0; i < constructionCylinderHorizontalMainSegmentList.Count; i++)
+                                if (originTransform.InverseTransformPoint(allPoints[i - 1]).y > originTransform.InverseTransformPoint(allPoints[i]).y &&
+                                    originTransform.InverseTransformPoint(allPoints[i + 1]).y > originTransform.InverseTransformPoint(allPoints[i]).y)
                                 {
-                                    float direction;
-                                    GameObject newCylinder = Instantiate(constructionCylinderHorizontal);
+                                    nrOfRequiredLists++;
+                                }
+                            }
 
-                                    if(constructionCylinderHorizontalMainSegmentList[0].transform.InverseTransformPoint(nodeCurrentPosition.transform.position).x >= 0f)
+                            //Find the generating lines
+                            pointsGeneratingLines[0] = false;
+                            pointsGeneratingLines[1] = true;
+                            pointsGeneratingLines[allPoints.Length - 1] = false;
+
+                            for (int i = 2; i < allPoints.Length; i++)
+                            {
+                                bool generateLine;
+                                if (originTransform.InverseTransformPoint(allPoints[i]).y > originTransform.InverseTransformPoint(allPoints[i - 1]).y)
+                                {
+                                    generateLine = true;
+                                }
+                                else
+                                {
+                                    generateLine = false;
+                                }
+                                pointsGeneratingLines[i - 1] = generateLine;
+                            }
+
+                            //Find portion ids
+                            int portionCounter = 0;
+                            linePortionIds[0] = -1;
+                            linePortionIds[1] = 0;
+
+                            for (int i = 1; i < allPoints.Length - 1; i++)
+                            {
+                                if (originTransform.InverseTransformPoint(allPoints[i - 1]).y < originTransform.InverseTransformPoint(allPoints[i]).y &&
+                                    originTransform.InverseTransformPoint(allPoints[i + 1]).y < originTransform.InverseTransformPoint(allPoints[i]).y)
+                                {
+                                    portionCounter++;
+                                }
+                                linePortionIds[i] = portionCounter;
+                            }
+
+                            //Create / delete the row lists
+                            if (nrOfRequiredLists > contructionCylinderParallelList.Count)
+                            {
+                                List<GameObject> newRow = new List<GameObject>();
+                                contructionCylinderParallelList.Add(newRow);
+                            }
+
+                            //Calculate portions magnitude
+                            Dictionary<int, float> magnitudes = new Dictionary<int, float>(); // id -> value
+
+                            for (int i = 1; i < pointsGeneratingLines.Length - 1; i++)
+                            {
+                                if (pointsGeneratingLines[i] == true)
+                                {
+                                    float vectAngle = Vector3.Angle(allPoints[1] - allPoints[0], allPoints[i+1] - allPoints[i]);
+                                    float size = Mathf.Sin(vectAngle * Mathf.Deg2Rad) * (allPoints[i+1] - allPoints[i]).magnitude;                                    
+
+                                    if (!magnitudes.ContainsKey(linePortionIds[i]))
                                     {
-                                        direction = -1;
+                                        magnitudes.Add(linePortionIds[i], size);
                                     }
                                     else
                                     {
-                                        direction = 1;
+                                        magnitudes[linePortionIds[i]] = magnitudes[linePortionIds[i]] + size;
+                                    }
+                                }
+                            }
+
+                            //Create rows
+                            for (int i = 0; i < allPoints.Length - 1; i++)
+                            {
+                                //Debug.Log("i: " + i + "; generatingLine: " + pointsGeneratingLines[i] + "; points length: " + allPoints.Length);
+
+                                if (pointsGeneratingLines[i] == true)
+                                {
+                                    //Add cylinders to list                                    
+                                    while (magnitudes[linePortionIds[i]] > contructionCylinderParallelList[linePortionIds[i]].Count * constructionCylinderHorizontalBounds.x)
+                                    {
+                                        GameObject newCylinder = Instantiate(constructionCylinderHorizontal);
+
+                                        float direction;
+
+                                        if (originTransform.InverseTransformPoint(nodeCurrentPosition.transform.position).y >= 0f)
+                                        {
+                                            direction = -1;
+                                        }
+                                        else
+                                        {
+                                            direction = 1;
+                                        }
+
+                                        newCylinder.transform.rotation = constructionCylinderHorizontalMainSegmentList[0].transform.rotation;
+
+                                        Vector3 newStartPos = allPoints[i]
+                                            + constructionCylinderHorizontalMainSegmentList[0].transform.right * direction
+                                            * (-1)
+                                            * constructionCylinderHorizontalBounds.x
+                                            * (contructionCylinderParallelList[linePortionIds[i]].Count + 1);
+
+                                        newCylinder.transform.position = newStartPos;
+
+                                        contructionCylinderParallelList[linePortionIds[i]].Add(newCylinder);
                                     }
 
-                                    //Position
-                                    newCylinder.transform.position = constructionCylinderHorizontalMainSegmentList[i].transform.position
-                                        + constructionCylinderHorizontalMainSegmentList[i].transform.right * direction
-                                        * (-1)
-                                        * constructionCylinderHorizontalBounds.x
-                                        * (contructionCylinderParallelList.Count + 1);
-                                    //Rotation
-                                    newCylinder.transform.rotation = constructionCylinderHorizontalMainSegmentList[i].transform.rotation;
-                                    //Scale
-                                    newCylinder.transform.localScale = constructionCylinderHorizontalMainSegmentList[i].transform.localScale;
-
-                                    newCylinderLine.Add(newCylinder);
+                                    //Remove cylinders from list
+                                    while (contructionCylinderParallelList[linePortionIds[i]].Count * constructionCylinderHorizontalBounds.x > magnitudes[linePortionIds[i]] + constructionCylinderHorizontalBounds.x)
+                                    {
+                                        Destroy(contructionCylinderParallelList[linePortionIds[i]][contructionCylinderParallelList[linePortionIds[i]].Count - 1].gameObject);
+                                        contructionCylinderParallelList[linePortionIds[i]].RemoveAt(contructionCylinderParallelList[linePortionIds[i]].Count - 1);
+                                    }
                                 }
-                                contructionCylinderParallelList.Add(newCylinderLine);
                             }
+
+                            //Update lines                          
+                            for(int i=1; i< allPoints.Length; i++)
+                            {
+                                if (pointsGeneratingLines[i])
+                                {
+                                    for (int j = 0; j < contructionCylinderParallelList[linePortionIds[i]].Count; j++)
+                                    {
+                                        //Update the starting position for the game objects on the generating lines
+                                        float xOnLine = getXforLineEcuation(originTransform.InverseTransformPoint(allPoints[i]), originTransform.InverseTransformPoint(allPoints[i + 1]), originTransform.InverseTransformPoint(contructionCylinderParallelList[linePortionIds[i]][j].transform.position).y);
+
+                                        //Debug.Log("point i = {" + i + "}; portion id = {" + linePortionIds[i] + "}" + "; ccpl[id] localpos = {" + originTransform.InverseTransformPoint(contructionCylinderParallelList[linePortionIds[i]][j].transform.position).y + "; local x on line = {" + xOnLine + "}");
+                                        //Debug.Log("i = {" + i + "}; j {" + j + "}");
+
+                                        if (originTransform.InverseTransformPoint(contructionCylinderParallelList[linePortionIds[i]][j].transform.position).y > originTransform.InverseTransformPoint(allPoints[i]).y)
+                                        {
+                                            Vector3 objectInitialPosition = contructionCylinderParallelList[linePortionIds[i]][j].transform.position;
+                                            contructionCylinderParallelList[linePortionIds[i]][j].transform.position = originTransform.TransformPoint(xOnLine - constructionCylinderHorizontalBounds.z / 2, originTransform.InverseTransformPoint(objectInitialPosition).y, originTransform.InverseTransformPoint(objectInitialPosition).z);
+
+                                            //Find the closest ending line
+                                            float maxEndLine = -Mathf.Infinity;
+                                            for (int k = i + 1; k < allPoints.Length; k++)
+                                            {
+                                                float xOnEndLine;
+
+                                                if (k < allPoints.Length - 1)
+                                                {
+                                                    xOnEndLine = getXforLineEcuation(originTransform.InverseTransformPoint(allPoints[k]), originTransform.InverseTransformPoint(allPoints[k + 1]), originTransform.InverseTransformPoint(contructionCylinderParallelList[linePortionIds[i]][j].transform.position).y);
+                                                    Debug.Log("obejct pos y = {" + originTransform.InverseTransformPoint(contructionCylinderParallelList[linePortionIds[i]][j].transform.position).y + ": xEndOnLine = {" + xOnEndLine + "}; point k = " + allPoints[k] + "; point k+1 = " + allPoints[k+1]);
+                                                }
+                                                //Bridge to first                                                
+                                                {
+                                                    xOnEndLine = getXforLineEcuation(originTransform.InverseTransformPoint(allPoints[k]), originTransform.InverseTransformPoint(allPoints[0]), originTransform.InverseTransformPoint(contructionCylinderParallelList[linePortionIds[i]][j].transform.position).y);
+                                                    Debug.Log("obejct pos y = {" + originTransform.InverseTransformPoint(contructionCylinderParallelList[linePortionIds[i]][j].transform.position).y + ": xEndOnLine = {" + xOnEndLine + "}; point k = " + allPoints[k] + "; point 0 = " + allPoints[0]);
+                                                }
+                                                if(xOnEndLine > maxEndLine)
+                                                {
+                                                    maxEndLine = xOnEndLine;
+
+                                                    //<= CONTINUE
+                                                    //Vector3 instantiatePos = originTransform.TransformPoint(xOnEndLine, originTransform.InverseTransformPoint(objectInitialPosition).y, originTransform.InverseTransformPoint(objectInitialPosition).z);
+                                                    //Instantiate(constructionCylinder, instantiatePos, Quaternion.identity);
+                                                }
+                                                Debug.Log("maxEndLine = " + xOnEndLine);
+                                            }
+
+                                            //Debug.Log("point i = {" + i + "}; portion id = {" + linePortionIds[i] + "}" + "; ccpl[id] localpos = {" + originTransform.InverseTransformPoint(contructionCylinderParallelList[linePortionIds[i]][j].transform.position).y + "; local x on line = {" + xOnLine + "}");
+                                        }
+                                    }                                    
+                                }                                    
+                            }
+                            Debug.Log("-----------");
                         }
                     }
                 }
@@ -405,19 +565,19 @@ public class BlueprintConstruction : MonoBehaviour
                     Destroy(nodeCurrentPosition);
                     Destroy(currentSegment);
 
-                    for(int i=0; i<blueprintPoints.Count; i++)
+                    for (int i = 0; i < blueprintPoints.Count; i++)
                     {
                         Destroy(blueprintPoints[i]);
                     }
 
-                    for(int i=0; i<segmentList.Count; i++)
+                    for (int i = 0; i < segmentList.Count; i++)
                     {
                         Destroy(segmentList[i]);
                     }
                 }
             }
         }
-    
+
         else
         {
             //Change cylinder construction type
@@ -427,7 +587,7 @@ public class BlueprintConstruction : MonoBehaviour
                 {
                     int constructionVariationIndex = hit.transform.GetComponent<BlueprintCylinder>().getVariant();
                     constructionVariationIndex++;
-                    if(constructionVariationIndex > constructionCylinderVariations.Count - 1)
+                    if (constructionVariationIndex > constructionCylinderVariations.Count - 1)
                     {
                         constructionVariationIndex = 0;
                     }
@@ -437,9 +597,9 @@ public class BlueprintConstruction : MonoBehaviour
 
                     int indexOfCylinder = -1;
 
-                    for(int i=0; i<constructionCylinderList.Count; i++)
+                    for (int i = 0; i < constructionCylinderList.Count; i++)
                     {
-                        if(constructionCylinderList[i].GetInstanceID() == hit.transform.gameObject.GetInstanceID())
+                        if (constructionCylinderList[i].GetInstanceID() == hit.transform.gameObject.GetInstanceID())
                         {
                             indexOfCylinder = i;
                             break;
@@ -452,5 +612,25 @@ public class BlueprintConstruction : MonoBehaviour
                 }
             }
         }
+    }
+
+    private float getXforLineEcuation(Vector2 pointA, Vector2 pointB, float inputY)
+    {
+        float m = 0; //slope
+        float b = 0; //y intersect
+        float xForInput = 0; //get the x for input y
+
+        m = (pointB.y - pointA.y) / (pointB.x - pointA.x);
+        b = pointA.y - m * pointA.x;
+        //b = pointA.y / (m * pointA.x);        
+
+        //y = m * x + b;
+        //x = (y - b) / m;
+
+        xForInput = (inputY - b) / m;
+
+        //Debug.Log("m = {" + m + "}; b = {" + b + "}; xForInput: {" + xForInput + "} for pointA: {" + pointA + "}; pointB: {" + pointB + "} with inputY: {" + inputY + "}");
+
+        return xForInput;
     }
 }
