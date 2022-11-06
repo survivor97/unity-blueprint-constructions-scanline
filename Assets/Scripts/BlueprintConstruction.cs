@@ -49,7 +49,7 @@ public class BlueprintConstruction : MonoBehaviour
     private List<GameObject> segmentList;
     private List<GameObject> constructionCylinderLastSegmentList;
     private List<GameObject> constructionCylinderHorizontalMainSegmentList;
-    private List<List<GameObject>> contructionCylinderParallelList;
+    private List<List<LineObjectList>> contructionCylinderParallelList;
     private List<GameObject> constructionCylinderList;
     private List<GameObject> constructionCylinderVariations;
 
@@ -82,7 +82,7 @@ public class BlueprintConstruction : MonoBehaviour
                 segmentList = new List<GameObject>();
                 constructionCylinderLastSegmentList = new List<GameObject>();
                 constructionCylinderHorizontalMainSegmentList = new List<GameObject>();
-                contructionCylinderParallelList = new List<List<GameObject>>();
+                contructionCylinderParallelList = new List<List<LineObjectList>>();
                 constructionCylinderList = new List<GameObject>();
             }
         }
@@ -432,7 +432,7 @@ public class BlueprintConstruction : MonoBehaviour
                             //Create / delete the row lists
                             if (nrOfRequiredLists > contructionCylinderParallelList.Count)
                             {
-                                List<GameObject> newRow = new List<GameObject>();
+                                List<LineObjectList> newRow = new List<LineObjectList>();
                                 contructionCylinderParallelList.Add(newRow);
                             }
 
@@ -457,15 +457,14 @@ public class BlueprintConstruction : MonoBehaviour
                                 }
                             }
 
-                            //Create rows
+                            #region Add / Remove rows for parallel objects
+                            //Add / remove rows
                             for (int i = 0; i < allPoints.Length - 1; i++)
                             {
-                                //Debug.Log("i: " + i + "; generatingLine: " + pointsGeneratingLines[i] + "; points length: " + allPoints.Length);
-
                                 if (pointsGeneratingLines[i] == true)
                                 {
                                     //Add cylinders to list                                    
-                                    while (magnitudes[linePortionIds[i]] > contructionCylinderParallelList[linePortionIds[i]].Count * constructionCylinderHorizontalBounds.x)
+                                    while (contructionCylinderParallelList[linePortionIds[i]].Count * constructionCylinderHorizontalBounds.x < magnitudes[linePortionIds[i]] - constructionCylinderHorizontalBounds.x)
                                     {
                                         GameObject newCylinder = Instantiate(constructionCylinderHorizontal);
 
@@ -490,69 +489,124 @@ public class BlueprintConstruction : MonoBehaviour
 
                                         newCylinder.transform.position = newStartPos;
 
-                                        contructionCylinderParallelList[linePortionIds[i]].Add(newCylinder);
+                                        int startPoint = i - 1;
+                                        for(int j=i; j < allPoints.Length; j++)
+                                        {
+                                            if(originTransform.InverseTransformPoint(newStartPos).y > originTransform.InverseTransformPoint(allPoints[i]).y)
+                                            {
+                                                startPoint++;
+                                            }
+                                            else
+                                            {
+                                                break;
+                                            }
+                                        }
+
+                                        LineObjectList newLineObjectList = new LineObjectList();
+                                        newLineObjectList.gameObject = newCylinder;
+                                        newLineObjectList.startPoint = startPoint;
+
+                                        contructionCylinderParallelList[linePortionIds[i]].Add(newLineObjectList);
                                     }
 
                                     //Remove cylinders from list
-                                    while (contructionCylinderParallelList[linePortionIds[i]].Count * constructionCylinderHorizontalBounds.x > magnitudes[linePortionIds[i]] + constructionCylinderHorizontalBounds.x)
+                                    while (contructionCylinderParallelList[linePortionIds[i]].Count * constructionCylinderHorizontalBounds.x > magnitudes[linePortionIds[i]])
                                     {
                                         Destroy(contructionCylinderParallelList[linePortionIds[i]][contructionCylinderParallelList[linePortionIds[i]].Count - 1].gameObject);
                                         contructionCylinderParallelList[linePortionIds[i]].RemoveAt(contructionCylinderParallelList[linePortionIds[i]].Count - 1);
                                     }
                                 }
                             }
+                            #endregion
 
+                            #region Update start position for parallel objects + set start point
                             //Update lines                          
-                            for(int i=1; i< allPoints.Length; i++)
+                            for (int i=1; i< allPoints.Length; i++)
                             {
                                 if (pointsGeneratingLines[i])
                                 {
                                     for (int j = 0; j < contructionCylinderParallelList[linePortionIds[i]].Count; j++)
                                     {
                                         //Update the starting position for the game objects on the generating lines
-                                        float xOnLine = getXforLineEcuation(originTransform.InverseTransformPoint(allPoints[i]), originTransform.InverseTransformPoint(allPoints[i + 1]), originTransform.InverseTransformPoint(contructionCylinderParallelList[linePortionIds[i]][j].transform.position).y);
+                                        float xOnLine = getXforLineEcuation(originTransform.InverseTransformPoint(allPoints[i]), originTransform.InverseTransformPoint(allPoints[i + 1]), originTransform.InverseTransformPoint(contructionCylinderParallelList[linePortionIds[i]][j].gameObject.transform.position).y);
 
-                                        //Debug.Log("point i = {" + i + "}; portion id = {" + linePortionIds[i] + "}" + "; ccpl[id] localpos = {" + originTransform.InverseTransformPoint(contructionCylinderParallelList[linePortionIds[i]][j].transform.position).y + "; local x on line = {" + xOnLine + "}");
-                                        //Debug.Log("i = {" + i + "}; j {" + j + "}");
-
-                                        if (originTransform.InverseTransformPoint(contructionCylinderParallelList[linePortionIds[i]][j].transform.position).y > originTransform.InverseTransformPoint(allPoints[i]).y)
+                                        //Update the points upper than the last point
+                                        if (originTransform.InverseTransformPoint(contructionCylinderParallelList[linePortionIds[i]][j].gameObject.transform.position).y > originTransform.InverseTransformPoint(allPoints[i]).y)
                                         {
-                                            Vector3 objectInitialPosition = contructionCylinderParallelList[linePortionIds[i]][j].transform.position;
-                                            contructionCylinderParallelList[linePortionIds[i]][j].transform.position = originTransform.TransformPoint(xOnLine - constructionCylinderHorizontalBounds.z / 2, originTransform.InverseTransformPoint(objectInitialPosition).y, originTransform.InverseTransformPoint(objectInitialPosition).z);
+                                            //Debug.Log("Update starting from portion " + originTransform.InverseTransformPoint(allPoints[i]).y);
 
-                                            //Find the closest ending line
-                                            float maxEndLine = -Mathf.Infinity;
-                                            for (int k = i + 1; k < allPoints.Length; k++)
-                                            {
-                                                float xOnEndLine;
-
-                                                if (k < allPoints.Length - 1)
-                                                {
-                                                    xOnEndLine = getXforLineEcuation(originTransform.InverseTransformPoint(allPoints[k]), originTransform.InverseTransformPoint(allPoints[k + 1]), originTransform.InverseTransformPoint(contructionCylinderParallelList[linePortionIds[i]][j].transform.position).y);
-                                                    Debug.Log("obejct pos y = {" + originTransform.InverseTransformPoint(contructionCylinderParallelList[linePortionIds[i]][j].transform.position).y + ": xEndOnLine = {" + xOnEndLine + "}; point k = " + allPoints[k] + "; point k+1 = " + allPoints[k+1]);
-                                                }
-                                                //Bridge to first                                                
-                                                {
-                                                    xOnEndLine = getXforLineEcuation(originTransform.InverseTransformPoint(allPoints[k]), originTransform.InverseTransformPoint(allPoints[0]), originTransform.InverseTransformPoint(contructionCylinderParallelList[linePortionIds[i]][j].transform.position).y);
-                                                    Debug.Log("obejct pos y = {" + originTransform.InverseTransformPoint(contructionCylinderParallelList[linePortionIds[i]][j].transform.position).y + ": xEndOnLine = {" + xOnEndLine + "}; point k = " + allPoints[k] + "; point 0 = " + allPoints[0]);
-                                                }
-                                                if(xOnEndLine > maxEndLine)
-                                                {
-                                                    maxEndLine = xOnEndLine;
-
-                                                    //<= CONTINUE
-                                                    //Vector3 instantiatePos = originTransform.TransformPoint(xOnEndLine, originTransform.InverseTransformPoint(objectInitialPosition).y, originTransform.InverseTransformPoint(objectInitialPosition).z);
-                                                    //Instantiate(constructionCylinder, instantiatePos, Quaternion.identity);
-                                                }
-                                                Debug.Log("maxEndLine = " + xOnEndLine);
-                                            }
-
-                                            //Debug.Log("point i = {" + i + "}; portion id = {" + linePortionIds[i] + "}" + "; ccpl[id] localpos = {" + originTransform.InverseTransformPoint(contructionCylinderParallelList[linePortionIds[i]][j].transform.position).y + "; local x on line = {" + xOnLine + "}");
+                                            Vector3 objectInitialPosition = contructionCylinderParallelList[linePortionIds[i]][j].gameObject.transform.position;
+                                            contructionCylinderParallelList[linePortionIds[i]][j].gameObject.transform.position = originTransform.TransformPoint(xOnLine, originTransform.InverseTransformPoint(objectInitialPosition).y, originTransform.InverseTransformPoint(objectInitialPosition).z);
                                         }
-                                    }                                    
+                                    }
                                 }                                    
                             }
-                            Debug.Log("-----------");
+                            #endregion
+
+                            #region find the ending point on the line ecuation
+                            //Find the ending point on the line ecuation                                    
+                            //Create a vector including the first element on last position
+                            Vector3[] allPointsPlusLast = new Vector3[allPoints.Length + 1];
+                            for (int p = 0; p < allPoints.Length; p++)
+                            {
+                                allPointsPlusLast[p] = allPoints[p];
+                            }
+                            allPointsPlusLast[allPointsPlusLast.Length - 1] = allPoints[0];                            
+
+                            //Go thourgh all the object lists
+                            for(int i=0; i< contructionCylinderParallelList.Count; i++)
+                            {
+                                for(int j=0; j< contructionCylinderParallelList[i].Count; j++)
+                                {
+                                    float maxEndLine = -Mathf.Infinity;
+
+                                    for (int k = contructionCylinderParallelList[i][j].startPoint; k < allPointsPlusLast.Length - 1; k++)
+                                    {
+                                        float xOnEndLine = getXforLineEcuation(
+                                            originTransform.InverseTransformPoint(allPointsPlusLast[k]),
+                                            originTransform.InverseTransformPoint(allPointsPlusLast[k + 1]),
+                                            originTransform.InverseTransformPoint(contructionCylinderParallelList[i][j].gameObject.transform.position).y);
+
+                                        float kPointHeight = originTransform.InverseTransformPoint(allPointsPlusLast[k]).y;
+                                        float kPlusPointHeight = originTransform.InverseTransformPoint(allPointsPlusLast[k + 1]).y;
+                                        float maxHeightOfPoints = Mathf.Max(kPointHeight, kPlusPointHeight);
+                                        float minHeightOfPoints = Mathf.Min(kPointHeight, kPlusPointHeight);
+
+                                        Vector2 objectPosition = originTransform.InverseTransformPoint(contructionCylinderParallelList[i][j].gameObject.transform.position);
+
+                                        if (
+                                            xOnEndLine > maxEndLine
+                                            && objectPosition.y >= minHeightOfPoints
+                                            && objectPosition.y <= maxHeightOfPoints
+                                            )
+                                        {
+                                            maxEndLine = xOnEndLine;
+                                        }
+
+                                        Debug.DrawLine(
+                                            originTransform.TransformPoint(
+                                                maxEndLine,
+                                                originTransform.InverseTransformPoint(contructionCylinderParallelList[i][j].gameObject.transform.position).y,
+                                                originTransform.InverseTransformPoint(contructionCylinderParallelList[i][j].gameObject.transform.position).z),
+
+                                                contructionCylinderParallelList[i][j].gameObject.transform.position,
+
+                                                Color.red);
+
+                                        Debug.DrawRay(
+                                            originTransform.TransformPoint(
+                                                maxEndLine,
+                                                originTransform.InverseTransformPoint(contructionCylinderParallelList[i][j].gameObject.transform.position).y,
+                                                originTransform.InverseTransformPoint(contructionCylinderParallelList[i][j].gameObject.transform.position).z),
+
+                                                originTransform.up * 2f,
+
+                                                Color.green);
+                                    }
+                                }
+                            }
+
+                            #endregion
                         }
                     }
                 }
@@ -633,4 +687,11 @@ public class BlueprintConstruction : MonoBehaviour
 
         return xForInput;
     }
+
+    public struct LineObjectList
+    {
+        public int startPoint;
+        public GameObject gameObject;
+    }
+
 }
