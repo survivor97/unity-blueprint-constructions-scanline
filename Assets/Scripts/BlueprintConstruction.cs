@@ -59,6 +59,15 @@ public class BlueprintConstruction : MonoBehaviour
     bool[] pointsGeneratingLines;
     int[] linePortionIds;
 
+    //Scan Line section
+    private Vector3[] localVertexTable;
+    private EdgeInfo[] edgeTable;
+    private int[] activeEdges;
+
+    private float globalMinY;
+    private float globalMaxY;
+    private float lineScanStep;
+
     void Start()
     {
         constructionCylinderVerticalBounds = constructionCylinder.GetComponent<MeshRenderer>().bounds.size;
@@ -68,6 +77,8 @@ public class BlueprintConstruction : MonoBehaviour
         constructionCylinderVariations.Add(constructionCylinder);
         constructionCylinderVariations.Add(constructionCylinderWindow);
         constructionCylinderVariations.Add(constructionCylinderDoor);
+
+        lineScanStep = constructionCylinderHorizontalBounds.x;
     }
 
     void Update()
@@ -311,6 +322,130 @@ public class BlueprintConstruction : MonoBehaviour
                             originTransform.position = hit.point;
                         }
 
+                        #region SCAN_LINE ALGORITHM
+                                                
+                        if(allPoints.Length > 2)
+                        {
+                            //Update the vertex local points + global min y + global max y
+                            localVertexTable = new Vector3[allPoints.Length];
+                            globalMinY = 0f;
+                            globalMaxY = 0f;
+
+                            for (int i = 0; i < allPoints.Length; i++)
+                            {
+                                localVertexTable[i] = originTransform.InverseTransformPoint(allPoints[i]);
+
+                                if(localVertexTable[i].y < globalMinY)
+                                {
+                                    globalMinY = localVertexTable[i].y;
+                                }
+                                else if(localVertexTable[i].y > globalMaxY)
+                                {
+                                    globalMaxY = localVertexTable[i].y;
+                                }
+                            }
+
+                            //Update the edge table
+                            edgeTable = new EdgeInfo[localVertexTable.Length];
+
+                            for(int i=0; i < localVertexTable.Length; i++)
+                            {
+                                EdgeInfo edgeInfo = new EdgeInfo();
+                                if(i < localVertexTable.Length - 1)
+                                {
+                                    edgeInfo.yMin = Mathf.Min(localVertexTable[i].y, localVertexTable[i + 1].y);
+                                    edgeInfo.yMax = Mathf.Max(localVertexTable[i].y, localVertexTable[i + 1].y);
+                                    edgeInfo.xOfMinY = Mathf.Min(localVertexTable[i].y) < Mathf.Min(localVertexTable[i + 1].y) ? localVertexTable[i].x : localVertexTable[i + 1].x;
+                                    edgeInfo.slope = getSlope(localVertexTable[i], localVertexTable[i + 1]);
+                                }
+
+                                //Bridge last point to first
+                                else
+                                {
+                                    edgeInfo.yMin = Mathf.Min(localVertexTable[i].y, localVertexTable[0].y);
+                                    edgeInfo.yMax = Mathf.Max(localVertexTable[i].y, localVertexTable[0].y);
+                                    edgeInfo.xOfMinY = Mathf.Min(localVertexTable[i].y) < Mathf.Min(localVertexTable[0].y) ? localVertexTable[i].x : localVertexTable[0].x;
+                                    edgeInfo.slope = getSlope(localVertexTable[i], localVertexTable[0]);
+                                }
+
+                                edgeTable[i] = edgeInfo;
+                            }
+
+                            //Update the active edge table           
+                            float scanLineY = globalMinY + lineScanStep / 2;
+
+                            while(scanLineY < globalMaxY)
+                            {
+                                activeEdges = new int[0];
+
+                                //Find the active edges
+                                for (int i = 0; i < edgeTable.Length; i++)
+                                {
+                                    //Ignore horizontal edges
+                                    if (!aproximate(edgeTable[i].slope, 0f, 0.03f))
+                                    {
+                                        //edges that scanline hit
+                                        if (scanLineY > edgeTable[i].yMin && scanLineY < edgeTable[i].yMax)
+                                        {
+                                            int[] oldActiveEdges = activeEdges;
+                                            activeEdges = new int[oldActiveEdges.Length + 1];
+                                            oldActiveEdges.CopyTo(activeEdges, 0);
+                                            activeEdges[activeEdges.Length - 1] = i;
+                                        }
+                                    }
+                                }
+
+                                //Debug log active edges
+                                Debug.Log("Active edges for scanline at y = { " + scanLineY + " }:");
+
+                                float[] xIntersections = new float[0];
+
+                                //Calculate x position for every edge intersection
+                                for (int i = 0; i < activeEdges.Length; i++)
+                                {
+                                    EdgeInfo currentEdge = edgeTable[activeEdges[i]];
+                                    float xPosition = currentEdge.xOfMinY + (scanLineY - currentEdge.yMin) / currentEdge.slope;
+
+                                    float[] xIntersectionsOld = xIntersections;
+                                    xIntersections = new float[xIntersectionsOld.Length + 1];
+                                    xIntersectionsOld.CopyTo(xIntersections, 0);
+                                    xIntersections[xIntersections.Length - 1] = xPosition;
+
+                                    Debug.Log("Edge { " + activeEdges[i] + " } at position x = { " + xPosition + " }");
+                                }
+
+                                //Sort x intersection array
+                                for(int i=0; i < xIntersections.Length-1; i++)
+                                {
+                                    for(int j=i; j < xIntersections.Length; j++)
+                                    {
+                                        if(xIntersections[i] < xIntersections[j])
+                                        {
+                                            float temp = xIntersections[i];
+                                            xIntersections[i] = xIntersections[j];
+                                            xIntersections[j] = temp;
+                                        }
+                                    }
+                                }
+
+                                //Draw line
+                                for(int i=0; i<xIntersections.Length; i++)
+                                {
+                                    if(i % 2 != 0 && i > 0)
+                                    {
+                                        Vector2 startLocalPos = new Vector2(xIntersections[i-1], scanLineY);
+                                        Vector2 endLocalPos = new Vector2(xIntersections[i], scanLineY);
+                                        Debug.DrawLine(originTransform.TransformPoint(startLocalPos), originTransform.TransformPoint(endLocalPos), Color.red);
+                                    }
+                                }
+
+                                scanLineY += lineScanStep;
+                            }                     
+                        }
+
+                        #endregion SCAN_LINE ALGORITHM
+
+
                         //Update the origin transform
                         originTransform.transform.LookAt(allPoints[1], Vector3.up);
                         originTransform.rotation *= Quaternion.Euler(90f, -90f, 0f);
@@ -383,9 +518,12 @@ public class BlueprintConstruction : MonoBehaviour
                         //Add constructions in parallel
                         else
                         {
-                            int nrOfRequiredLists = 1;
+                            #region MY_ALGORITHM
+                            /*
 
                             //Calculate the number of required lists
+                            int nrOfRequiredLists = 1;
+                            
                             for (int i = 2; i < allPoints.Length - 1; i++)
                             {
                                 if (originTransform.InverseTransformPoint(allPoints[i - 1]).y > originTransform.InverseTransformPoint(allPoints[i]).y &&
@@ -607,6 +745,15 @@ public class BlueprintConstruction : MonoBehaviour
                             }
 
                             #endregion
+
+                            */
+                            #endregion MY_ALGORITHM
+
+                            #region SCAN_LINE ALGORITHM
+
+
+
+                            #endregion SCAN_LINE ALGORITHM
                         }
                     }
                 }
@@ -692,6 +839,25 @@ public class BlueprintConstruction : MonoBehaviour
     {
         public int startPoint;
         public GameObject gameObject;
+    }
+
+    private float getSlope(Vector2 pointA, Vector2 pointB)
+    {
+        return (pointB.y - pointA.y) / (pointB.x - pointA.x);
+    }
+
+    private bool aproximate(float a, float b, float tolerance)
+    {
+        return Mathf.Abs(a - b) < tolerance;
+    }
+
+    [System.Serializable]
+    public struct EdgeInfo
+    {
+        public float yMin;
+        public float yMax;
+        public float xOfMinY;
+        public float slope;
     }
 
 }
