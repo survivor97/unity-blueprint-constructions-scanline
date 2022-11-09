@@ -474,11 +474,6 @@ public class BlueprintConstruction : MonoBehaviour
                             //Add segments
                             for (int i = 0; i < listOfIntersections.Count; i++)
                             {
-                                for(int j = 0; j < listOfIntersections[i].Count; j++)
-                                {
-                                    Debug.Log("i = " + i + "; j = " + j + "; value = " + listOfIntersections[i][j]);
-                                }
-
                                 int nrOfScannedSegments = listOfIntersections[i].Count / 2;
 
                                 //Add entire segment line
@@ -490,7 +485,7 @@ public class BlueprintConstruction : MonoBehaviour
                                 //Remove segment's objects when the segment no longer exists, then remove the segment from the list
                                 while (listOfObjects[i].Count > nrOfScannedSegments)
                                 {
-                                    for(int k = 0; k < listOfObjects[i][listOfObjects[i].Count - 1].Count; k++)
+                                    for (int k = 0; k < listOfObjects[i][listOfObjects[i].Count - 1].Count; k++)
                                     {
                                         Destroy(listOfObjects[i][listOfObjects[i].Count - 1][k]);
                                     }
@@ -500,28 +495,30 @@ public class BlueprintConstruction : MonoBehaviour
                                 //Add objects to the segment / Update the position
                                 for (int k = 0; k < listOfObjects[i].Count; k++)
                                 {
-                                    Vector2 startPos = listOfIntersections[i][k * 2];
+                                    //UPDATE SCALING
+                                    float currentSegmentSizeX = listOfIntersections[i][k * 2 + 1].x - listOfIntersections[i][k * 2].x;
+                                    Debug.Log("i: " + i + "; k : " + k + "; SIZE: " + currentSegmentSizeX);
+
+                                    float scaleValue = constructionCylinderHorizontalBounds.z - currentSegmentSizeX;
+
+                                    Vector3 startPos = originTransform.TransformPoint(listOfIntersections[i][k * 2] + new Vector2(constructionCylinderHorizontalBounds.z / 2 - scaleValue / 2, 0f));
 
                                     //Instantiate
-                                    if(listOfObjects[i][k].Count == 0)
+                                    if (listOfObjects[i][k].Count == 0)
                                     {
-                                        Debug.Log("INSTANTIATING AT POS: " + startPos);
-                                        listOfObjects[i][k].Add(Instantiate(constructionCylinderHorizontal, originTransform.TransformPoint(startPos), segmentList[0].transform.rotation));
+                                        listOfObjects[i][k].Add(Instantiate(constructionCylinderHorizontal, startPos, segmentList[0].transform.rotation));
                                     }
                                     //Update position
                                     else
                                     {
-                                        listOfObjects[i][k][0].transform.position = originTransform.TransformPoint(startPos);
+                                        listOfObjects[i][k][0].transform.position = startPos;
                                     }
+
+                                    listOfObjects[i][k][0].transform.localScale = new Vector3(
+                                                constructionCylinderHorizontal.transform.localScale.x,
+                                                constructionCylinderHorizontal.transform.localScale.y,
+                                                1 - (scaleValue / constructionCylinderHorizontalBounds.z));
                                 }
-
-                                //Remove segment from the line
-                                //while (listOfObjects[i].Count > nrOfScannedSegments)
-                                //{
-                                //    listOfObjects[i].RemoveAt(listOfObjects[i].Count - 1);
-                                //}
-
-                                //Debug.Log("segments for i = " + i + ": {" + listOfObjects[i].Count + "}");
                             }
                         }
 
@@ -533,7 +530,7 @@ public class BlueprintConstruction : MonoBehaviour
 
                         #region Construction Line on the first segment
                         //Add constructions in line
-                        /*
+                        
                         if (blueprintPoints.Count <= 1)
                         {
                             float totalConstructionLength = constructionCylinderHorizontalMainSegmentList.Count * constructionCylinderHorizontalBounds.z;
@@ -597,7 +594,7 @@ public class BlueprintConstruction : MonoBehaviour
                                 }
                             }
                         }
-                        */
+                        
                         #endregion Construction Line on the first segment
 
                         #region MY_ALGORITHM_OLD
