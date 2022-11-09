@@ -68,6 +68,9 @@ public class BlueprintConstruction : MonoBehaviour
     private float globalMaxY;
     private float lineScanStep;
 
+    private List<List<List<GameObject>>> listOfObjects;
+    private List<List<Vector2>> listOfIntersections;
+
     void Start()
     {
         constructionCylinderVerticalBounds = constructionCylinder.GetComponent<MeshRenderer>().bounds.size;
@@ -79,6 +82,7 @@ public class BlueprintConstruction : MonoBehaviour
         constructionCylinderVariations.Add(constructionCylinderDoor);
 
         lineScanStep = constructionCylinderHorizontalBounds.x;
+        listOfObjects = new List<List<List<GameObject>>>();     
     }
 
     void Update()
@@ -323,8 +327,8 @@ public class BlueprintConstruction : MonoBehaviour
                         }
 
                         #region SCAN_LINE ALGORITHM
-                                                
-                        if(allPoints.Length > 2)
+
+                        if (allPoints.Length > 2)
                         {
                             //Update the vertex local points + global min y + global max y
                             localVertexTable = new Vector3[allPoints.Length];
@@ -335,11 +339,11 @@ public class BlueprintConstruction : MonoBehaviour
                             {
                                 localVertexTable[i] = originTransform.InverseTransformPoint(allPoints[i]);
 
-                                if(localVertexTable[i].y < globalMinY)
+                                if (localVertexTable[i].y < globalMinY)
                                 {
                                     globalMinY = localVertexTable[i].y;
                                 }
-                                else if(localVertexTable[i].y > globalMaxY)
+                                else if (localVertexTable[i].y > globalMaxY)
                                 {
                                     globalMaxY = localVertexTable[i].y;
                                 }
@@ -348,10 +352,10 @@ public class BlueprintConstruction : MonoBehaviour
                             //Update the edge table
                             edgeTable = new EdgeInfo[localVertexTable.Length];
 
-                            for(int i=0; i < localVertexTable.Length; i++)
+                            for (int i = 0; i < localVertexTable.Length; i++)
                             {
                                 EdgeInfo edgeInfo = new EdgeInfo();
-                                if(i < localVertexTable.Length - 1)
+                                if (i < localVertexTable.Length - 1)
                                 {
                                     edgeInfo.yMin = Mathf.Min(localVertexTable[i].y, localVertexTable[i + 1].y);
                                     edgeInfo.yMax = Mathf.Max(localVertexTable[i].y, localVertexTable[i + 1].y);
@@ -374,9 +378,11 @@ public class BlueprintConstruction : MonoBehaviour
                             //Update the active edge table           
                             float scanLineY = globalMinY + lineScanStep / 2;
 
-                            while(scanLineY < globalMaxY)
+                            listOfIntersections = new List<List<Vector2>>();
+
+                            while (scanLineY < globalMaxY)
                             {
-                                activeEdges = new int[0];
+                                List<int> activeEdges = new List<int>();
 
                                 //Find the active edges
                                 for (int i = 0; i < edgeTable.Length; i++)
@@ -387,70 +393,147 @@ public class BlueprintConstruction : MonoBehaviour
                                         //edges that scanline hit
                                         if (scanLineY > edgeTable[i].yMin && scanLineY < edgeTable[i].yMax)
                                         {
-                                            int[] oldActiveEdges = activeEdges;
-                                            activeEdges = new int[oldActiveEdges.Length + 1];
-                                            oldActiveEdges.CopyTo(activeEdges, 0);
-                                            activeEdges[activeEdges.Length - 1] = i;
+                                            activeEdges.Add(i);
                                         }
                                     }
                                 }
 
                                 //Debug log active edges
-                                Debug.Log("Active edges for scanline at y = { " + scanLineY + " }:");
+                                //Debug.Log("Active edges for scanline at y = { " + scanLineY + " }:");
 
-                                float[] xIntersections = new float[0];
+                                List<Vector2> intersections = new List<Vector2>();
 
                                 //Calculate x position for every edge intersection
-                                for (int i = 0; i < activeEdges.Length; i++)
+                                for (int i = 0; i < activeEdges.Count; i++)
                                 {
                                     EdgeInfo currentEdge = edgeTable[activeEdges[i]];
                                     float xPosition = currentEdge.xOfMinY + (scanLineY - currentEdge.yMin) / currentEdge.slope;
 
-                                    float[] xIntersectionsOld = xIntersections;
-                                    xIntersections = new float[xIntersectionsOld.Length + 1];
-                                    xIntersectionsOld.CopyTo(xIntersections, 0);
-                                    xIntersections[xIntersections.Length - 1] = xPosition;
+                                    intersections.Add(new Vector2(xPosition, scanLineY));
 
-                                    Debug.Log("Edge { " + activeEdges[i] + " } at position x = { " + xPosition + " }");
+                                    //Debug.Log("Edge { " + activeEdges[i] + " } at position x = { " + xPosition + " }");
                                 }
 
                                 //Sort x intersection array
-                                for(int i=0; i < xIntersections.Length-1; i++)
+                                for (int i = 0; i < intersections.Count - 1; i++)
                                 {
-                                    for(int j=i; j < xIntersections.Length; j++)
+                                    for (int j = i; j < intersections.Count; j++)
                                     {
-                                        if(xIntersections[i] < xIntersections[j])
+                                        if (intersections[i].x > intersections[j].x)
                                         {
-                                            float temp = xIntersections[i];
-                                            xIntersections[i] = xIntersections[j];
-                                            xIntersections[j] = temp;
+                                            Vector2 temp = intersections[i];
+                                            intersections[i] = intersections[j];
+                                            intersections[j] = temp;
                                         }
                                     }
                                 }
 
-                                //Draw line
-                                for(int i=0; i<xIntersections.Length; i++)
+                                listOfIntersections.Add(intersections);
+
+                                //Debug Draw Line
+                                for (int i = 0; i < intersections.Count; i++)
                                 {
-                                    if(i % 2 != 0 && i > 0)
+                                    if (i % 2 != 0 && i > 0)
                                     {
-                                        Vector2 startLocalPos = new Vector2(xIntersections[i-1], scanLineY);
-                                        Vector2 endLocalPos = new Vector2(xIntersections[i], scanLineY);
+                                        Vector2 startLocalPos = new Vector2(intersections[i - 1].x, intersections[i - 1].y);
+                                        Vector2 endLocalPos = new Vector2(intersections[i].x, intersections[i].y);
+
                                         Debug.DrawLine(originTransform.TransformPoint(startLocalPos), originTransform.TransformPoint(endLocalPos), Color.red);
                                     }
                                 }
 
                                 scanLineY += lineScanStep;
-                            }                     
+
+                            }
+
+                            #endregion SCAN_LINE ALGORITHM
+
+                            #region ADD GAME OBJECTS TO SCANNED POSITIONS
+
+                            //Add lines
+                            while (listOfObjects.Count < listOfIntersections.Count)
+                            {
+                                listOfObjects.Add(new List<List<GameObject>>());
+                            }
+
+                            //Remove lines
+                            while (listOfObjects.Count > listOfIntersections.Count)
+                            {
+                                //Access the entire line of segments
+                                for(int i = 0; i < listOfObjects[listOfObjects.Count - 1].Count; i++)
+                                {
+                                    //Access the segment objects and destroy them
+                                    for(int j = 0; j < listOfObjects[listOfObjects.Count - 1][i].Count; j++)
+                                    {
+                                        Destroy(listOfObjects[listOfObjects.Count - 1][i][j]);                                        
+                                    }
+                                }
+                                listOfObjects.RemoveAt(listOfObjects.Count - 1);
+                            }
+
+                            //Add segments
+                            for (int i = 0; i < listOfIntersections.Count; i++)
+                            {
+                                for(int j = 0; j < listOfIntersections[i].Count; j++)
+                                {
+                                    Debug.Log("i = " + i + "; j = " + j + "; value = " + listOfIntersections[i][j]);
+                                }
+
+                                int nrOfScannedSegments = listOfIntersections[i].Count / 2;
+
+                                //Add entire segment line
+                                while (listOfObjects[i].Count < nrOfScannedSegments)
+                                {
+                                    listOfObjects[i].Add(new List<GameObject>());
+                                }
+
+                                //Remove segment's objects when the segment no longer exists, then remove the segment from the list
+                                while (listOfObjects[i].Count > nrOfScannedSegments)
+                                {
+                                    for(int k = 0; k < listOfObjects[i][listOfObjects[i].Count - 1].Count; k++)
+                                    {
+                                        Destroy(listOfObjects[i][listOfObjects[i].Count - 1][k]);
+                                    }
+                                    listOfObjects[i].RemoveAt(listOfObjects[i].Count - 1);
+                                }
+
+                                //Add objects to the segment / Update the position
+                                for (int k = 0; k < listOfObjects[i].Count; k++)
+                                {
+                                    Vector2 startPos = listOfIntersections[i][k * 2];
+
+                                    //Instantiate
+                                    if(listOfObjects[i][k].Count == 0)
+                                    {
+                                        Debug.Log("INSTANTIATING AT POS: " + startPos);
+                                        listOfObjects[i][k].Add(Instantiate(constructionCylinderHorizontal, originTransform.TransformPoint(startPos), segmentList[0].transform.rotation));
+                                    }
+                                    //Update position
+                                    else
+                                    {
+                                        listOfObjects[i][k][0].transform.position = originTransform.TransformPoint(startPos);
+                                    }
+                                }
+
+                                //Remove segment from the line
+                                //while (listOfObjects[i].Count > nrOfScannedSegments)
+                                //{
+                                //    listOfObjects[i].RemoveAt(listOfObjects[i].Count - 1);
+                                //}
+
+                                //Debug.Log("segments for i = " + i + ": {" + listOfObjects[i].Count + "}");
+                            }
                         }
 
-                        #endregion SCAN_LINE ALGORITHM
-
+                        #endregion ADD GAME OBJECTS TO SCANNED POSITIONS
 
                         //Update the origin transform
                         originTransform.transform.LookAt(allPoints[1], Vector3.up);
                         originTransform.rotation *= Quaternion.Euler(90f, -90f, 0f);
 
+                        #region Construction Line on the first segment
                         //Add constructions in line
+                        /*
                         if (blueprintPoints.Count <= 1)
                         {
                             float totalConstructionLength = constructionCylinderHorizontalMainSegmentList.Count * constructionCylinderHorizontalBounds.z;
@@ -514,13 +597,14 @@ public class BlueprintConstruction : MonoBehaviour
                                 }
                             }
                         }
+                        */
+                        #endregion Construction Line on the first segment
 
+                        #region MY_ALGORITHM_OLD
+                        /*
                         //Add constructions in parallel
                         else
                         {
-                            #region MY_ALGORITHM
-                            /*
-
                             //Calculate the number of required lists
                             int nrOfRequiredLists = 1;
                             
@@ -746,15 +830,11 @@ public class BlueprintConstruction : MonoBehaviour
 
                             #endregion
 
-                            */
-                            #endregion MY_ALGORITHM
-
-                            #region SCAN_LINE ALGORITHM
-
-
-
-                            #endregion SCAN_LINE ALGORITHM
+                            
+                            
                         }
+                            */
+                        #endregion MY_ALGORITHM_OLD
                     }
                 }
 
