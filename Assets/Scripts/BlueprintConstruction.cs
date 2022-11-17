@@ -497,27 +497,51 @@ public class BlueprintConstruction : MonoBehaviour
                                 {
                                     //UPDATE SCALING
                                     float currentSegmentSizeX = listOfIntersections[i][k * 2 + 1].x - listOfIntersections[i][k * 2].x;
-                                    Debug.Log("i: " + i + "; k : " + k + "; SIZE: " + currentSegmentSizeX);
+                                    //Debug.Log("i: " + i + "; k : " + k + "; SIZE: " + currentSegmentSizeX);
+                                                                        
+                                    //Vector3 localStartPos = listOfIntersections[i][k * 2] + new Vector2(constructionCylinderHorizontalBounds.z / 2 - scaleValue / 2, 0f);                                   
+                                    Vector3 localStartPos = listOfIntersections[i][k * 2] + new Vector2(constructionCylinderHorizontalBounds.z / 2, 0f);
+                                    Vector3 startPos = originTransform.TransformPoint(localStartPos);
 
-                                    float scaleValue = constructionCylinderHorizontalBounds.z - currentSegmentSizeX;
-
-                                    Vector3 startPos = originTransform.TransformPoint(listOfIntersections[i][k * 2] + new Vector2(constructionCylinderHorizontalBounds.z / 2 - scaleValue / 2, 0f));
-
-                                    //Instantiate
-                                    if (listOfObjects[i][k].Count == 0)
+                                    //Add object to segment
+                                    while(listOfObjects[i][k].Count * constructionCylinderHorizontalBounds.z < currentSegmentSizeX + constructionCylinderHorizontalBounds.z)
                                     {
                                         listOfObjects[i][k].Add(Instantiate(constructionCylinderHorizontal, startPos, segmentList[0].transform.rotation));
                                     }
-                                    //Update position
-                                    else
+
+                                    //Remove object from segment
+                                    while (listOfObjects[i][k].Count * constructionCylinderHorizontalBounds.z > currentSegmentSizeX + constructionCylinderHorizontalBounds.z)
                                     {
-                                        listOfObjects[i][k][0].transform.position = startPos;
+                                        int lastIndex = listOfObjects[i][k].Count - 1;
+                                        Destroy(listOfObjects[i][k][lastIndex]);
+                                        listOfObjects[i][k].RemoveAt(lastIndex);
                                     }
 
-                                    listOfObjects[i][k][0].transform.localScale = new Vector3(
-                                                constructionCylinderHorizontal.transform.localScale.x,
-                                                constructionCylinderHorizontal.transform.localScale.y,
-                                                1 - (scaleValue / constructionCylinderHorizontalBounds.z));
+                                    //Arrange + Scale
+                                    for (int x = 0; x < listOfObjects[i][k].Count; x++)
+                                    {
+                                        //All objects excepting last
+                                        if(x < listOfObjects[i][k].Count - 1)
+                                        {
+                                            listOfObjects[i][k][x].transform.position = originTransform.TransformPoint(localStartPos + new Vector3(constructionCylinderHorizontalBounds.z * x, 0f, 0f));
+                                            listOfObjects[i][k][x].transform.localScale = constructionCylinderHorizontal.transform.localScale;
+                                        }   
+                                        //Last object: Scale + pos
+                                        else
+                                        {
+                                            float totalSegmentSize = listOfObjects[i][k].Count * constructionCylinderHorizontalBounds.z;
+                                            float scaleValue = totalSegmentSize - currentSegmentSizeX;
+
+                                            //Scale
+                                            listOfObjects[i][k][x].transform.localScale = new Vector3(
+                                                        constructionCylinderHorizontal.transform.localScale.x,
+                                                        constructionCylinderHorizontal.transform.localScale.y,
+                                                        1 - (scaleValue / constructionCylinderHorizontalBounds.z));
+
+                                            //Position
+                                            listOfObjects[i][k][x].transform.position = originTransform.TransformPoint(listOfIntersections[i][k * 2] + new Vector2(totalSegmentSize - constructionCylinderHorizontalBounds.z / 2 - scaleValue / 2, 0f));
+                                        }
+                                    }                                                                                                 
                                 }
                             }
                         }
@@ -530,7 +554,7 @@ public class BlueprintConstruction : MonoBehaviour
 
                         #region Construction Line on the first segment
                         //Add constructions in line
-                        
+                        /*
                         if (blueprintPoints.Count <= 1)
                         {
                             float totalConstructionLength = constructionCylinderHorizontalMainSegmentList.Count * constructionCylinderHorizontalBounds.z;
@@ -594,7 +618,7 @@ public class BlueprintConstruction : MonoBehaviour
                                 }
                             }
                         }
-                        
+                        */
                         #endregion Construction Line on the first segment
 
                         #region MY_ALGORITHM_OLD
